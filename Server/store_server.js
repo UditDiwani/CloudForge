@@ -3,9 +3,14 @@ const cors = require('cors');
 const helmet = require('helmet');
 const dotenv = require('dotenv');
 const dns = require('dns');
-const JobRoutes = require("./StorageNode/JobRoutes");
-dns.setServers(['8.8.8.8', '1.1.1.1']);
+
 dotenv.config();
+
+dns.setServers(['8.8.8.8', '1.1.1.1']);
+
+const JobRoutes = require("./StorageNode/JobRoutes");
+
+
 
 const app = express()
 

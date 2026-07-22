@@ -1,9 +1,8 @@
 const fs = require('fs');
 const path = require('path');
-const { drive } = require('../../config/googleDrive') 
+const { getGoogleDriveClient } = require('../../config/googleDrive');
+const drive = getGoogleDriveClient();
 
-const express = require('express');
-const router = express.Router();
 
 
 // 1. Core recursive function (handles the actual downloading)
@@ -16,7 +15,7 @@ const downloadFolderRecursive = async (folderId, localPath) => {
         q: `'${folderId}' in parents and trashed = false`,
         fields: "files(id,name,mimeType)"
     });
-
+    console.log(response.data.files);
     for (const item of response.data.files) {
         if (item.mimeType === "application/vnd.google-apps.folder") {
             // Recursion works perfectly now using strings
@@ -61,3 +60,5 @@ const downloadFolder = async (req, res) => {
         return res.status(500).json({ error: "Internal server error", details: error.message });
     }
 };
+
+module.exports = { downloadFolder };

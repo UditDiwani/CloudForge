@@ -1,28 +1,29 @@
 const fs = require('fs').promises;
-const path = require('path');
-const { drive } = require('../../config/googleDrive') 
+const path = require('path'); 
 
-const express = require('express');
-const { file } = require('googleapis/build/src/apis/file');
-const router = express.Router();
 
 const listDownloaded = async (localpath) => {
     try{
         const items = await fs.readdir(localpath);
-        console.log(items);
+        const result = {
+            item_name: path.basename(localpath),
+            children: {}
+        };
 
+        let fileNum=0;
         for(const item of items){
             const fullpath = path.join(localpath,item);
             const stats = await fs.stat(fullpath);
+             
             if (stats.isDirectory()){
-                console.log(`Folder: ${item}`);
-                await listDownloaded(fullpath);
+                result.children[item] = await listDownloaded(fullpath)
             }
             else{
-                const filesizeinmb = (stats.size / (1024 * 1024)).toFixed(2);
-                console.log(`file : ${item} (${filesizeinmb} MB)`);
+                fileNum+=1;
+                result.children[`file#${fileNum}`] = item;
             }
         }
+        return result;
     }
     catch (error){
         console.error(`Error while reading directory : ${error}`)
@@ -32,8 +33,9 @@ const listDownloaded = async (localpath) => {
 const listDownload = async (req,res) => {
     const { localpath } = req.body;
 
-    await listDownloaded(localpath);
-    res.status(200).json({status : 'Output complete'});
+    const result = await listDownloaded(localpath);
+    res.status(200).json(result);
+    console.log(JSON.stringify(result, null, 2));
 }
 
 module.exports = { listDownload }
