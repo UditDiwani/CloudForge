@@ -13,19 +13,28 @@ const getRequiredEnv = (key) => {
 };
 
 const getGoogleDriveClient = () => {
-  const clientEmail = getRequiredEnv('GOOGLE_SERVICE_ACCOUNT_EMAIL');
-  // .env stores newlines as "\n"; Google auth requires real newline characters.
-  const privateKey = getRequiredEnv('GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY').replace(/\\n/g, '\n');
+  const clientId = getRequiredEnv('GOOGLE_CLIENT_ID');
+  const clientSecret = getRequiredEnv('GOOGLE_CLIENT_SECRET');
+  const redirectUri = getRequiredEnv('GOOGLE_REDIRECT_URI');
+  const refreshToken = getRequiredEnv('GOOGLE_REFRESH_TOKEN');
 
-  const auth = new google.auth.JWT({
-    email: clientEmail,
-    key: privateKey,
-    scopes: DRIVE_SCOPES,
-  });
+  const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, redirectUri);
+  oauth2Client.setCredentials({ refresh_token: refreshToken });
 
-  return google.drive({ version: 'v3', auth });
+  return google.drive({ version: 'v3', auth: oauth2Client });
+};
+
+const getConfiguredDriveFolderId = () => {
+  const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
+
+  if (!folderId) {
+    throw new Error('GOOGLE_DRIVE_FOLDER_ID is not defined in environment variables');
+  }
+
+  return folderId;
 };
 
 module.exports = {
   getGoogleDriveClient,
+  getConfiguredDriveFolderId,
 };

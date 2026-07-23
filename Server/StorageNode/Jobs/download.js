@@ -1,7 +1,8 @@
 const fs = require('fs');
 const path = require('path');
-const { getGoogleDriveClient } = require('../../config/googleDrive');
+const { getGoogleDriveClient, getConfiguredDriveFolderId } = require('../../config/googleDrive');
 const drive = getGoogleDriveClient();
+const ROOT_FOLDER_ID = getConfiguredDriveFolderId();
 
 
 
@@ -11,8 +12,10 @@ const downloadFolderRecursive = async (folderId, localPath) => {
         fs.mkdirSync(localPath, { recursive: true });
     }
 
+    const targetFolderId = folderId || ROOT_FOLDER_ID;
+
     const response = await drive.files.list({
-        q: `'${folderId}' in parents and trashed = false`,
+        q: `'${targetFolderId}' in parents and trashed = false`,
         fields: "files(id,name,mimeType)"
     });
     console.log(response.data.files);
@@ -45,14 +48,14 @@ const downloadFolderRecursive = async (folderId, localPath) => {
 // 2. API Endpoint Controller (handles the req/res lifecycle)
 const downloadFolder = async (req, res) => {
     try {
-        const { folderId, localPath } = req.body;
+        const { localPath } = req.body;
 
-        if (!folderId || !localPath) {
-            return res.status(400).json({ error: "Missing folderId or localPath" });
+        if (!localPath) {
+            return res.status(400).json({ error: "Missing localPath" });
         }
 
-        // Kick off the recursion using the extracted values
-        await downloadFolderRecursive(folderId, localPath);
+        // Kick off the recursion using the configured root folder
+        await downloadFolderRecursive(ROOT_FOLDER_ID, localPath);
 
         return res.status(200).json({ message: "Folder downloaded successfully" });
     } catch (error) {
