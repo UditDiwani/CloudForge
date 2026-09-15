@@ -3,6 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const dotenv = require('dotenv');
 const dns = require('dns');
+const driveRoutes = require('./routes/driveRoutes');
 
 dns.setServers(['8.8.8.8', '1.1.1.1']);
 dotenv.config();
@@ -15,7 +16,11 @@ app.use(helmet({
 
 app.use(express.json());
 
+
+
 const allowedOrigins = [
+  'http://127.0.0.1:5173',
+  'http://localhost:5173',
   'http://127.0.0.1:5500', // live server
   'http://localhost:5500',
   'https://uditdiwani.github.io',
@@ -28,11 +33,13 @@ app.use(cors({
   credentials: true
 }));
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.MAIN_PORT;
 
 app.get('/', (req, res) => {
   res.send('Hello World!');
 });
+
+app.use('/api/drive',driveRoutes);
 
 const startServer = async () => {
   try {

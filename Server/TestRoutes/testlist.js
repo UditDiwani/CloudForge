@@ -5,7 +5,7 @@
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ localpath: "C:/Users/Udit/OneDrive/Desktop/DevopsScreenshots" }),
+      body: JSON.stringify({ localpath: "C:/Users/Udit/AndroidProjects" }),
     });
 
     const data = await response.json();

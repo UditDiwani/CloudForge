@@ -64,4 +64,18 @@ const downloadFolder = async (req, res) => {
     }
 };
 
-module.exports = { downloadFolder };
+const listDriveContents = async (req,res) =>{
+    try {
+        const response = await drive.files.list({
+        q: `'${ROOT_FOLDER_ID}' in parents and trashed = false`,
+        fields: "files(id,name,mimeType,modifiedTime,size)",
+        orderBy: "folder,name",
+        });
+        return res.status(200).json({files : response.data.files})
+    }catch(error){
+        console.error("Drive listing failed: ",error);
+        return res.status(500).json({error:"Could not list drive contents"})
+    }
+}
+
+module.exports = { downloadFolder, listDriveContents };
