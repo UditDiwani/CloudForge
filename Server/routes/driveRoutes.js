@@ -1,5 +1,5 @@
 const express = require('express');
-const archiver = require('archiver');
+const { ZipArchive } = require('archiver');
 const {
     FOLDER_MIME_TYPE,getDrive,getRootFolderId,listChildren,isFolder,toPublicItem,assertItemIsInsideRoot,safeDownloadName
 } = require('../Services/driveService');
@@ -83,7 +83,7 @@ router.get('/folders/:folderId/download',async (req , res) => {
         if(!isFolder(folder)){
             return res.status(400).json({error: 'This item is not a folder'});
         }
-        const archive = archiver('zip',{zlib: {level: 9}});
+        const archive = new ZipArchive('zip',{zlib: {level: 9}});
         archive.on('error',(error) => res.destroy(error));
 
         res.setHeader('Content-Type','application/zip');

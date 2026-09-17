@@ -38,9 +38,7 @@ function App(){
   const [driveError, setDriveError] = useState("");
   const [currentFolderId,setCurrentFolderId] = useState<string | undefined>();
   const [driveLoading,setDriveLoading] = useState(false);
-  const [folderHistory, setFolderHistory] = useState<{id?: String;name: string}[]>([
-    {name: 'My Drive'},
-  ]);
+  const [folderHistory, setFolderHistory] = useState<{id?: String;name: string}[]>([]);
 
   type DriveItem = {
     id: string;
@@ -202,48 +200,57 @@ function App(){
         <pre>{JSON.stringify(result, null, 2)}</pre>
       </section>
       
-      <section>
-        <h2>Google Drive contents</h2>
-        <button type='button' onClick={() => void loadDriveFiles()}>Refresh</button>
-        
-        <p>
-          {folderHistory.map((folder,index)=>(
-            <span key={folder.id ?? 'root'}>
-              {index > 0 && ' / '}
-              <button type="button" onClick={() => void loadDriveFiles(folder.id,folder.name)}>
-                {folder.name}
-              </button>
-            </span>
-          ))}
-        </p>
-        {driveLoading && <p>Loading files...</p>}
-        {driveError && <p>{driveError}</p>}
+      <section className="view_container_header">
+        <div className='vc_2' style={{flexDirection:"column"}}>
+          <h2>Google Drive contents</h2>
+          <button type='button' onClick={() => void loadDriveFiles()}>Refresh Drive</button>
+          <button type='button' onClick={()=> void loadDriveFiles(currentFolderId)}>Refresh folder</button>
+          <p>
+            {folderHistory.map((folder,index)=>(
+              <span key={folder.id ?? 'root'}>
+                {index > 0 && '>>'}
+                <button className='bread_crumbs' type="button" onClick={() => void loadDriveFiles(folder.id,folder.name)}>
+                  {folder.name}
+                </button>
+              </span>
+            ))}
+          </p>
+          {driveLoading && <p>Loading files...</p>}
+          {driveError && <p>{driveError}</p>}
+        </div>
       </section>
       <div className='view_container'>
-        <div className='vc_2'>
-          <ul>
+        
+          <ul className='vc_2'>
             {driveFiles.map((item)=>(
               <li key={item.id}>
-                <span aria-hidden="true">{item.isFolder ? 'Folder: ' : 'File: '}</span>
-
                 {item.isFolder ? (
-                  <button type="button" onClick={()=> void loadDriveFiles(item.id,item.name)}>
-                    {item.name}
-                  </button>
+                  <>
+                  <div className='folder' onClick={()=> void loadDriveFiles(item.id,item.name)}>
+                    <div className="folder_logo" >
+                    </div>
+                    <h3>{item.name}</h3>
+                    
+                  </div>
+                  </>
                 ) : (
-                  <a href={downloadUrl(item)}>{item.name}</a>
+                  <>
+                  <a className='file' href={downloadUrl(item)} aria-label={`Download ${item.name}`}>
+                    <div className='file_logo' aria-hidden="true" />
+                    <h3 title={item.name}>{item.name}</h3>
+                  </a>
+                  </>
                 )}
                 {item.isFolder && (
-                  <a href = {downloadUrl(item)} style={{marginLeft: '0.75rem'}}>Download Folder</a>
+                  <a className='folder-download' href = {downloadUrl(item)} style={{marginLeft: '0.75rem'}}>Download</a>
                 )}
                 
                 
               </li>
             ))}
           </ul>
-        </div>
         <div className='vc_2'>
-          
+          <div className='vc_item'>Item1</div>
         </div>
       </div>
     </main>

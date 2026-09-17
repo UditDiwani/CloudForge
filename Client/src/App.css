@@ -182,3 +182,130 @@
     border-right-color: var(--border);
   }
 }
+
+
+.view_container{
+  display: flex;
+  flex-direction: row;
+
+  justify-content: left;
+  align-items: center;
+  gap: 16px;
+  background-color: #501d77;
+}
+
+.view_container_header{
+  display: flex;
+  flex-direction: row;
+
+  justify-content: left;
+  align-items: center;
+  gap: 16px;
+  background-color: #501d77;
+}
+
+.vc_2{
+  display: flex;
+  flex-direction: row;
+  justify-content: left;
+  align-items: flex-start;
+  flex: 1;
+  flex-wrap: wrap;
+  max-width: 50%;
+  list-style-type: none;
+}
+
+.vc_2 > li {
+  width: 120px;
+  min-height: 148px;
+  list-style: none;
+}
+
+.bread_crumbs{
+  background-color: transparent;
+  color: aqua;
+  font-weight: bold;
+  font-size: large;
+  border: none;
+  cursor: pointer;
+}
+
+.folder_logo{
+  width: 72px;
+  height: 72px;
+  flex: 0 0 72px;
+  aspect-ratio: 1 / 1;
+  background-color: yellow;
+  filter: blur(1px);
+  opacity: 1;
+}
+
+.folder{
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  /* border: 1px solid white; */
+  padding-top: 10%;
+  padding-bottom: 1%;
+  cursor: pointer;
+  width: 120px;
+  height: 120px;
+}
+
+.folder h3,
+.file h3{
+  width: 100%;
+  margin: 8px 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.folder-download{
+  display: block;
+  height: 20px;
+  margin-top: 4px;
+  text-align: center;
+}
+.folder:hover{
+  background: linear-gradient(90deg,#F72585,#7209B7,#3F37C9,#7209B7,#F72585);
+  background-size: 400% ;
+  animation: gradienMovement 10s linear infinite;
+}
+
+.file{
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  /* border: 1px solid white; */
+  padding-top: 10%;
+  padding-bottom: 1%;
+  cursor: pointer;
+  width: 120px;
+  height: 120px;
+}
+
+.file_logo{
+  width: 72px;
+  height: 72px;
+  flex: 0 0 72px;
+  aspect-ratio: 1 / 1;
+  background-color: lightgrey;
+  filter: blur(1px);
+  opacity: 1;
+}
+
+.file:hover{
+  background: linear-gradient(90deg,#F72585,#7209B7,#3F37C9,#7209B7,#F72585);
+  background-size: 400% ;
+  animation: gradienMovement 10s linear infinite;
+}
+
+@keyframes gradienMovement{
+  0%{background-position: 0% 50%;}
+  50%{background-position: 300% 50%;}
+  100%{background-position: 0% 50%;}
+}
