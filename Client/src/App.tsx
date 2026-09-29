@@ -4,6 +4,7 @@ import './App.css'
 
 const API_BASE_MAIN = "http://127.0.0.1:3001"
 const API_BASE = "http://127.0.0.1:3000";
+const base_store_path='C:/Users/Udit/Storage';
 
 async function callStorageApi(path: String, body: Object) {
   const response = await fetch(`${API_BASE}${path}`, {
@@ -11,23 +12,23 @@ async function callStorageApi(path: String, body: Object) {
     headers: {"Content-Type":"application/json"},
     body: JSON.stringify(body)
   });
-  const rawText = await response.text();
-  
-  let data: unknown = rawText;
-  try {
-    data = rawText? JSON.parse(rawText) : {message:"No response body"};
-  } catch {
-  }
-  if (!response.ok){
-    const errorMessage = typeof data === "object" && data !== null && "error" in data && typeof data.error === "string" ? data.error : "Request failed";
+  const data = await response.json();
+  if(!response.ok) throw new Error(data.error ?? "Could not load drive files");
+  // let data: unknown = rawText;
+  // try {
+  //   data = rawText? JSON.parse(rawText) : {message:"No response body"};
+  // } catch {
+  // }
+  // if (!response.ok){
+  //   const errorMessage = typeof data === "object" && data !== null && "error" in data && typeof data.error === "string" ? data.error : "Request failed";
 
-    throw new Error(errorMessage);
-  }
+  //   throw new Error(errorMessage);
+  // }
   return data;
 }
 
 function App(){
-  const [listPath, setListPath] = useState("");
+  const [listPath, setListPath] = useState("C:/Users/Udit/Storage");
   const [downloadPath, setDownloadPath] = useState("");
   const [uploadJob, setUploadJob] = useState("uploadFile");
   const [uploadPath, setUploadPath] = useState("");
@@ -39,6 +40,10 @@ function App(){
   const [currentFolderId,setCurrentFolderId] = useState<string | undefined>();
   const [driveLoading,setDriveLoading] = useState(false);
   const [folderHistory, setFolderHistory] = useState<{id?: String;name: string}[]>([]);
+  const [storageFiles, setStorageFiles] = useState<StorageItem[]>([]);
+  const [storageLoading,setStorageLoading] = useState(false);
+  const [currentStoreFolderPath,setCurrentStoreFolderPath] = useState<string | undefined>();
+
 
   type DriveItem = {
     id: string;
@@ -47,6 +52,13 @@ function App(){
     isFolder: boolean;
     modifiedTime?: string;
     size?: string;
+  }
+
+  type StorageItem = {
+    id: string;
+    name: string;
+    isFolder: boolean;
+    children?: StorageItem[];
   }
 
   async function loadDriveFiles(parentId?: string,folderName = 'My Drive') {
@@ -79,6 +91,7 @@ function App(){
 
   useEffect(() => {
     void loadDriveFiles();
+    void loadStoreFiles();
   },[]);
 
   async function runRequest(action: string, request: () => Promise<unknown>) {
@@ -120,6 +133,12 @@ function App(){
     );
   }
 
+  async function loadStoreFiles(path?: String) {
+    var loadPath = path ? path : base_store_path;
+    var result1 = await callStorageApi('/Storage/list',{localpath : loadPath});
+    setStorageFiles(result1.children);
+  }
+
   return (
     <main>
       <h1> CloudForge Storage Console</h1>
@@ -134,7 +153,7 @@ function App(){
             onChange={(event) => 
               setListPath(event.target.value)}
             placeholder='C:/Users/Udit/Storage'
-            required
+            
             />
             <button type='submit'>List Files</button>
         </form>
@@ -218,9 +237,12 @@ function App(){
           {driveLoading && <p>Loading files...</p>}
           {driveError && <p>{driveError}</p>}
         </div>
+        <div>
+          <h2>Laptop server contents</h2>
+        </div>
       </section>
       <div className='view_container'>
-        
+        <h1></h1>
           <ul className='vc_2'>
             {driveFiles.map((item)=>(
               <li key={item.id}>
@@ -249,9 +271,40 @@ function App(){
               </li>
             ))}
           </ul>
-        <div className='vc_2'>
-          <div className='vc_item'>Item1</div>
-        </div>
+          <ul className='vc_2'>
+            {storageFiles.map((item)=>(
+              <li key={item.id}>
+                {item.isFolder ? (
+                  <>
+                  <div className='folder' onClick={()=> {
+                    const newPath = `${listPath}/${item.name}`;
+                    setListPath(newPath);
+
+                    void loadStoreFiles(newPath);
+                    
+                    }}>
+                    <div className="folder_logo" >
+                    </div>
+                    <h3>{item.name}</h3>
+                    
+                  </div>
+                  </>
+                ) : (
+                  <>
+                  <div className='file'>
+                    <div className='file_logo' aria-hidden="true" />
+                    <h3 title={item.name}>{item.name}</h3>
+                  </div>
+                  </>
+                )}
+                {/* {item.isFolder && (
+                  <a className='folder-download' href = {downloadUrl(item)} style={{marginLeft: '0.75rem'}}>Download</a>
+                )} */}
+                
+                
+              </li>
+            ))}
+          </ul>
       </div>
     </main>
   )
