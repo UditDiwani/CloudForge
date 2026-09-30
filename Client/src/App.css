@@ -249,8 +249,8 @@
   padding-top: 10%;
   padding-bottom: 1%;
   cursor: pointer;
-  width: 120px;
-  height: 120px;
+  width: 100%;
+  aspect-ratio: 1/1;
 }
 
 .folder h3,
@@ -265,10 +265,30 @@
 
 .folder-download{
   display: block;
-  height: 20px;
+  width: 25%;
   margin-top: 4px;
   text-align: center;
+  background: none;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+  outline: none;
+  font-family: sans-serif;
+  align-items: center;
+  justify-content: center;
 }
+
+.folder-download:active .tactile-shape{
+  transform: scale(0.96);
+  box-shadow:
+   inset 1px 1px 3px rgba(165,180,200,0.8),
+   inset -1px -1px 3px rgba(225,225,225,0.9);
+}
+
+.folder:has(.tactile-shape:hover){
+  background: transparent;
+}
+
 .folder:hover{
   background: linear-gradient(90deg,#F72585,#7209B7,#3F37C9,#7209B7,#F72585);
   background-size: 400% ;
@@ -286,6 +306,8 @@
   cursor: pointer;
   width: 120px;
   height: 120px;
+  background: transparent;
+  border: transparent;
 }
 
 .file_logo{
@@ -302,6 +324,27 @@
   background: linear-gradient(90deg,#F72585,#7209B7,#3F37C9,#7209B7,#F72585);
   background-size: 400% ;
   animation: gradienMovement 10s linear infinite;
+}
+
+.tactile-shape{
+  width: 100%;
+  aspect-ratio: 1/1;
+  background: linear-gradient(135deg,#ffffff 0%,#dce4ec 100%);
+  border-radius: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 
+    2px 2px 5px rgba(165,180,200,0.7),
+    -2px -2px 5px rgba(225,225,225,0.9),
+    inset 0.5px 0.5px 1px rgba(225,225,225,0.9);
+  transition: transform 0.1s ease , box-shadow 0.1s ease;
+}
+
+.download-arrow{
+  width: 50%;
+  height: 50%;
+  filter: drop-shadow(0.5px 0.5px 1px rgba(0,0,0,0.15));
 }
 
 @keyframes gradienMovement{
