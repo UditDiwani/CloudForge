@@ -18,7 +18,7 @@ const downloadFolderRecursive = async (folderId, localPath) => {
         q: `'${targetFolderId}' in parents and trashed = false`,
         fields: "files(id,name,mimeType)"
     });
-    console.log(response.data.files);
+    // console.log(response.data.files);
     for (const item of response.data.files) {
         if (item.mimeType === "application/vnd.google-apps.folder") {
             // Recursion works perfectly now using strings

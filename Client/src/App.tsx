@@ -91,7 +91,7 @@ function App(){
     }
   }
 
-  async function downloadItem(item: DriveItem){
+  async function downloadDriveItem(item: DriveItem){
     const itemType = item.isFolder ? 'folders' : 'files';
     const url = `${API_BASE_MAIN}/api/drive/${itemType}/${encodeURIComponent(item.id)}/download`;
     const response = await fetch(url, {
@@ -100,6 +100,28 @@ function App(){
     if(!response.ok){
       throw new Error("Download failed");
     }
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = objectUrl;
+    link.download = item.isFolder ? `${item.name}.zip` : item.name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(objectUrl);
+  }
+
+  async function downloadStorageItem(item:StorageItem) {
+    const url = `${API_BASE}/Storage/items/${encodeURIComponent(item.id)}/download`;
+
+    const response = await fetch(url, {credentials: 'include'});
+
+    if (!response.ok){
+      const data = await response.json().catch(()=>null);
+      throw new Error(data?.error ?? "Storage download failed");
+    }
+
     const blob = await response.blob();
     const objectUrl = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -302,10 +324,12 @@ function App(){
                     <div className="folder_logo" >
                     </div>
                     <h3>{item.name}</h3>
-                  <button type="button" className='folder-download' onClick={()=>void downloadItem(item)} aria-label='download-folder'>
+                  <button type="button" className='folder-download' onClick={(event)=>{
+                    event.stopPropagation();
+                    void downloadDriveItem(item)}} aria-label='download-folder'>
                     <div className='tactile-shape'>
                       <svg className="download-arrow" viewBox="0 0 24 24" fill="none" xmlns="http://w3.org">
-                        <path d="M12 15V3M12 15L8 11M12 15L16 11M4 17V19C4 20.1046 4.89543 21 6 21H18C19.1046 21 20 20.1046 20 19V17" stroke="#2B6CB0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M12 15 V1 M12 15L8 11M12 15L16 11M4 17V19C4 20.1046 4.89543 21 6 21H18C19.1046 21 20 20.1046 20 19V17" stroke="#2B6CB0" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
                     </div>
                   </button>
@@ -313,7 +337,7 @@ function App(){
                   </>
                 ) : (
                   <>
-                  <button type="button" className='file' aria-label={`Download ${item.name}`} onClick={()=>void downloadItem(item)}>
+                  <button type="button" className='file' aria-label={`Download ${item.name}`} onClick={()=>void downloadDriveItem(item)}>
                     <div className='file_logo' aria-hidden="true" />
                     <h3 title={item.name}>{item.name}</h3>
                   </button>
@@ -335,20 +359,25 @@ function App(){
                     <div className="folder_logo" >
                     </div>
                     <h3>{item.name}</h3>
-                    
+                    <button type="button" className='folder-download' onClick={(event)=>{
+                      event.stopPropagation();
+                      void downloadStorageItem(item)}} aria-label='download-folder'>
+                      <div className='tactile-shape'>
+                        <svg className="download-arrow" viewBox="0 0 24 24" fill="none" xmlns="http://w3.org">
+                          <path d="M12 15V3M12 15L8 11M12 15L16 11M4 17V19C4 20.1046 4.89543 21 6 21H18C19.1046 21 20 20.1046 20 19V17" stroke="#2B6CB0" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      </div>
+                    </button>
                   </div>
                   </>
                 ) : (
                   <>
-                  <div className='file'>
-                    <div className='file_logo' />
+                  <button type="button" className='file' aria-label={`Download ${item.name}`} onClick={()=>void downloadStorageItem(item)}>
+                    <div className='file_logo' aria-hidden="true" />
                     <h3 title={item.name}>{item.name}</h3>
-                  </div>
+                  </button>
                   </>
                 )}
-                {/* {item.isFolder && (
-                  <a className='folder-download' href = {downloadUrl(item)} style={{marginLeft: '0.75rem'}}>Download</a>
-                )} */}
                 
                 
               </li>

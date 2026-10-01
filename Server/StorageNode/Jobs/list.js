@@ -1,6 +1,7 @@
 const fs = require('fs').promises;
 const path = require('path'); 
 const { isFolder } = require('../../Services/driveService');
+const { makeItemId } = require('../storageItems');
 
 
 const listDownloaded = async (localpath) => {
@@ -8,7 +9,7 @@ const listDownloaded = async (localpath) => {
         const folderStats = await fs.stat(localpath);
         const items = await fs.readdir(localpath);
         const result = {
-            id: `${folderStats.dev}:${folderStats.ino}`,
+            id: makeItemId(localpath),
             name: path.basename(localpath),
             isFolder: true,
             children: [],
@@ -23,9 +24,9 @@ const listDownloaded = async (localpath) => {
             }
             else{
                 result.children.push({
-                    id: `${stats.dev}:${stats.ino}`,
+                    id: makeItemId(fullpath),
                     name: item,
-                    isFolder: false,
+                    isFolder: stats.isDirectory(),
                 });
             }
         }
