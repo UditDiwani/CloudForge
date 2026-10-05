@@ -42,7 +42,7 @@ const listDownload = async (req,res) => {
 
     const result = await listDownloaded(localpath);
     res.status(200).json(result);
-    console.log(JSON.stringify(result, null, 2));
+    // console.log(JSON.stringify(result, null, 2));
 }
 
 module.exports = { listDownload }

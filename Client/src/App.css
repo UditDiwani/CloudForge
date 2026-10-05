@@ -263,7 +263,7 @@
   text-align: center;
 }
 
-.folder-download{
+.folder-download, .delete-icon{
   display: block;
   width: 25%;
   margin-top: 4px;
@@ -341,10 +341,17 @@
   transition: transform 0.1s ease , box-shadow 0.1s ease;
 }
 
-.download-arrow{
-  width: 50%;
-  height: 50%;
+.download-arrow,.delete-shape{
+  width: 75%;
+  height: 75%;
   filter: drop-shadow(0.5px 0.5px 1px rgba(0,0,0,0.15));
+}
+
+.button-row{
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
 }
 
 @keyframes gradienMovement{

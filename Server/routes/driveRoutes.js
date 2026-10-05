@@ -102,4 +102,31 @@ router.get('/folders/:folderId/download',async (req , res) => {
     }
 });
 
+router.delete("/items/:fileId", async (req,res) =>{
+    try{
+        const item = await assertItemIsInsideRoot(req.params.fileId);
+
+        if(item.id === getRootFolderId()){
+            return res.status(400).json({ error: "The configured drive root cannot be deleted"});
+        }
+
+        await getDrive().files.update({
+            fileId: item.id,
+            requestBody: {trashed: true},
+        });
+
+        // await getDrive().files.delete({
+        //     fileId: item.id,
+        // }); //Possible option in future for perma delete
+
+        return res.json({message: "Drive item moved to trash", 
+            id: item.id,
+            name: item.name,
+        });
+    }catch (error){
+        console.error("Drive delete failed: ",error.message);
+        return res.status(500).json({error: "Could not delete Drive item"});
+    }
+})
+
 module.exports = router;
