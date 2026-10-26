@@ -189,7 +189,7 @@
   flex-direction: row;
 
   justify-content: left;
-  align-items: center;
+  align-items: stretch;
   gap: 16px;
   background-color: #501d77;
 }
@@ -209,9 +209,10 @@
   flex-direction: row;
   justify-content: left;
   align-items: flex-start;
-  flex: 1;
+  flex: 1 1 0;
   flex-wrap: wrap;
-  max-width: 50%;
+  max-width: none;
+  min-width: 0;
   list-style-type: none;
 }
 
@@ -289,7 +290,10 @@
   background: transparent;
 }
 
-.folder:hover{
+.folder:hover,
+.folder.selected,
+.file:hover,
+.file.selected{
   background: linear-gradient(90deg,#F72585,#7209B7,#3F37C9,#7209B7,#F72585);
   background-size: 400% ;
   animation: gradienMovement 10s linear infinite;
@@ -320,12 +324,6 @@
   opacity: 1;
 }
 
-.file:hover{
-  background: linear-gradient(90deg,#F72585,#7209B7,#3F37C9,#7209B7,#F72585);
-  background-size: 400% ;
-  animation: gradienMovement 10s linear infinite;
-}
-
 .tactile-shape{
   width: 100%;
   aspect-ratio: 1/1;
@@ -352,6 +350,50 @@
   flex-direction: row;
   justify-content: center;
   align-items: center;
+}
+
+.transfer-controls {
+  width: 84px;
+  flex: 0 0 84px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+}
+
+.transfer-arrow {
+  width: 52px;
+  height: 52px;
+  border: 0;
+  border-radius: 14px;
+  cursor: pointer;
+  color: #2B6CB0;
+  background: linear-gradient(135deg,#ffffff,#dce4ec);
+  box-shadow: 2px 2px 5px rgba(165,180,200,0.7),
+              -2px -2px 5px rgba(225, 225, 0.9);
+}
+
+.transfer-arrow svg {
+  width: 30px;
+  height: 30px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.transfer-arrow:hover:not(:disabled){
+  color: #ffffff;
+  background: linear-gradient(90deg,#F72585,#7209B7,#3F37C9);
+  background-size: 300%;
+  animation: gradientMovement 5s linear infinite;
+}
+
+.transfer-arrow:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
 }
 
 @keyframes gradienMovement{

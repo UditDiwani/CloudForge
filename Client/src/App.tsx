@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import './App.css'
 
@@ -46,6 +46,9 @@ function App(){
   const [storageHistory, setStorageHistory] = useState<StorageFolder[]>([
     { path: "C:/Users/Udit/Storage",name:"Home"},
   ])
+  const [selectedDriveIds, setSelectedDriveIds] = useState<Set<string>>(() => new Set());
+  const [selectedStorageIds, setSelectedStorageIds] = useState<Set<string>>(() => new Set());
+  const folderClickTimers = useRef<Record<string,ReturnType<typeof setTimeout>>>({});
 
   type DriveItem = {
     id: string;
@@ -66,6 +69,79 @@ function App(){
   type StorageFolder ={
     path: string;
     name: string;
+  }
+
+  function toggleSelection(
+    id: string,
+    setSelectedIds: React.Dispatch<React.SetStateAction<Set<string>>>
+  ){
+    setSelectedIds((previous) => {
+      const next = new Set(previous);
+      if(next.has(id)){
+        next.delete(id);
+      }else{
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  function scheduleFolderSelection(
+    key: string,
+    selectItem: () => void 
+  ){
+    const existingTimer = folderClickTimers.current[key];
+
+    if (existingTimer){
+      clearTimeout(existingTimer);
+    }
+
+    folderClickTimers.current[key] = setTimeout(() => {
+      selectItem();
+      delete folderClickTimers.current[key];
+    }, 220);
+  }
+
+  function cancelFolderSelection(key: string){
+    const timer = folderClickTimers.current[key];
+
+    if(timer){
+      clearTimeout(timer);
+      delete folderClickTimers.current[key];
+    }
+  }
+
+  function selectDriveItem(item: DriveItem){
+    toggleSelection(item.id,setSelectedDriveIds);
+  }
+  function handleDriveFolderClick(item: DriveItem){
+    scheduleFolderSelection(`drive:${item.id}`, () => {
+      selectDriveItem(item);
+    });
+  }
+  function handleDriveFolderDoubleClick(item: DriveItem){
+    cancelFolderSelection(`drive:${item.id}`);
+    void loadDriveFiles(item.id, item.name);
+  }
+  function selectStorageItem(item: StorageItem){
+    toggleSelection(item.id,setSelectedStorageIds);
+  }
+  function handleStorageFolderClick(item: StorageItem){
+    scheduleFolderSelection(`storage:${item.id}`,() => {
+      selectStorageItem(item);
+    });
+  }
+  function handleStorageFolderDoubleClick(item: StorageItem){
+    cancelFolderSelection(`storage:${item.id}`);
+
+    const newPath = `${listPath}/${item.name}`;
+    openStorageFolder(newPath,item.name);
+  }
+  function handleDriveToStorageTransfer(){
+    setStatus(`${selectedDriveIds.size} Drive items(s) ready to transfer to Storage.`);
+  }
+  function handleStorageToDriveTransfer(){
+    setStatus(`${selectedStorageIds.size} Storage Item(s) ready to transfer to Drive.`)
   }
 
   async function loadDriveFiles(parentId?: string,folderName = 'My Drive') {
@@ -349,13 +425,13 @@ function App(){
         </div>
       </section>
       <div className='view_container'>
-        <h1></h1>
+        
           <ul className='vc_2'>
             {driveFiles.map((item)=>(
               <li key={item.id}>
                 {item.isFolder ? (
                   <>
-                  <div className='folder' onClick={()=> void loadDriveFiles(item.id,item.name)}>
+                  <div className={`folder ${selectedDriveIds.has(item.id) ? "selected" : ""}`} onClick={()=> handleDriveFolderClick(item)} onDoubleClick={()=>handleDriveFolderDoubleClick(item)} aria-pressed={selectedDriveIds.has(item.id)}>
                   <div className="folder_logo" >
                   </div>
                   <h3>{item.name}</h3>
@@ -375,11 +451,11 @@ function App(){
                           <div className='tactile-shape'>
                             <svg className = "delete-shape" viewBox="0 0 250 250" fill="none" xmlns="http://w3.org">
                                
-                              <rect x="40" y ="40" width="170" height="190" fill="none" stroke="red" stroke-width="6"/>
-                              <rect x="60" y ="60" width="20" height="150" fill="red" stroke="red" stroke-width="2"/>
-                              <rect x="170" y ="60" width="20" height="150" fill="red" stroke="red" stroke-width="2"/>
-                              <rect x="115" y ="60" width="20" height="150" fill="red" stroke="red" stroke-width="2"/>
-                              <path d="M30 30 A 5 5 0 0 0 30 40 H220 A 5 5 0 0 0 220 30 Z M90 30 A 35 20 0 0 1 160 30 M150 30 A 30 25 0 0 0 100 30" stroke="red" fill="red" stroke-width = "2"/>
+                              <rect x="40" y ="40" width="170" height="190" fill="none" stroke="red" strokeWidth="6"/>
+                              <rect x="60" y ="60" width="20" height="150" fill="red" stroke="red" strokeWidth="2"/>
+                              <rect x="170" y ="60" width="20" height="150" fill="red" stroke="red" strokeWidth="2"/>
+                              <rect x="115" y ="60" width="20" height="150" fill="red" stroke="red" strokeWidth="2"/>
+                              <path d="M30 30 A 5 5 0 0 0 30 40 H220 A 5 5 0 0 0 220 30 Z M90 30 A 35 20 0 0 1 160 30 M150 30 A 30 25 0 0 0 100 30" stroke="red" fill="red" strokeWidth = "2"/>
                             </svg>
                           </div>
                         </button>
@@ -389,40 +465,65 @@ function App(){
                 ) : (
                   <>
                   <div style={{display: 'flex',alignItems:'center',flexDirection:'column'}}>
-                    <button type="button" className='file' aria-label={`Download ${item.name}`} onClick={()=>void downloadDriveItem(item)}>
+                    <button type="button" className={`file ${selectedDriveIds.has(item.id) ? "selected" : ""}`} aria-pressed={selectedDriveIds.has(item.id)} aria-label={`Select ${item.name}`} onClick={()=>selectDriveItem(item)}>
                       <div className='file_logo' aria-hidden="true" />
                       <h3 title={item.name}>{item.name}</h3>
                     </button>
+                    <div className="button-row">
+                      <button type="button" className="folder-download" aria-label={`Download ${item.name}`} onClick={(event) => {event.stopPropagation(); void downloadDriveItem(item);}}>
+                        <div className="tactile-shape">
+                          <svg className="download-arrow" viewBox="0 0 24 24" fill="none">
+                            <path
+                              d="M12 15V3M12 15L8 11M12 15L16 11M4 17V19C4 20.1046 4.89543 21 6 21H18C19.1046 21 20 20.1046 20 19V17"
+                              stroke="#2B6CB0"
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        </div>
+                      </button>
                       <button type="button" className='delete-icon' onClick={(event)=>{
                           event.stopPropagation();
                           void deleteDriveItem(item)}} aria-label='download-folder'>
                           <div className='tactile-shape'>
                             <svg className = "delete-shape" viewBox="0 0 250 250" fill="none" xmlns="http://w3.org">
                                
-                              <rect x="40" y ="40" width="170" height="190" fill="none" stroke="red" stroke-width="6"/>
-                              <rect x="60" y ="60" width="20" height="150" fill="red" stroke="red" stroke-width="2"/>
-                              <rect x="170" y ="60" width="20" height="150" fill="red" stroke="red" stroke-width="2"/>
-                              <rect x="115" y ="60" width="20" height="150" fill="red" stroke="red" stroke-width="2"/>
-                              <path d="M30 30 A 5 5 0 0 0 30 40 H220 A 5 5 0 0 0 220 30 Z M90 30 A 35 20 0 0 1 160 30 M150 30 A 30 25 0 0 0 100 30" stroke="red" fill="red" stroke-width = "2"/>
+                              <rect x="40" y ="40" width="170" height="190" fill="none" stroke="red" strokeWidth="6"/>
+                              <rect x="60" y ="60" width="20" height="150" fill="red" stroke="red" strokeWidth="2"/>
+                              <rect x="170" y ="60" width="20" height="150" fill="red" stroke="red" strokeWidth="2"/>
+                              <rect x="115" y ="60" width="20" height="150" fill="red" stroke="red" strokeWidth="2"/>
+                              <path d="M30 30 A 5 5 0 0 0 30 40 H220 A 5 5 0 0 0 220 30 Z M90 30 A 35 20 0 0 1 160 30 M150 30 A 30 25 0 0 0 100 30" stroke="red" fill="red" strokeWidth = "2"/>
                             </svg>
                           </div>
                       </button>
+                    </div>
                   </div>
                   </>
                 )}
               </li>
             ))}
           </ul>
+
+          <div className="transfer-controls">
+            <button type="button" className="transfer-arrow" onClick={handleDriveToStorageTransfer} disabled={selectedDriveIds.size === 0} aria-label="Transfer selected Drive Items to Storage" title="Move selected Drive items to Storage">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M5 12 H19 M13 6 L19 12 L13 18" />
+              </svg>
+            </button>
+            <button type="button" className="transfer-arrow" onClick={handleStorageToDriveTransfer} disabled={selectedStorageIds.size === 0} aria-label="Transfer selected Storage items to Drive" title="Move selected Storage items to Drive">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M19 12 H5 M11 6 L5 12 L11 18" />
+              </svg>
+            </button>
+          </div>
+
           <ul className='vc_2'>
             {storageFiles.map((item)=>(
               <li key={item.id}>
                 {item.isFolder ? (
                   <>
-                  <div className='folder' onClick={()=> {
-                    const newPath = `${listPath}/${item.name}`;
-                    openStorageFolder(newPath,item.name);
-                    
-                    }}>
+                  <div className={`folder ${selectedStorageIds.has(item.id) ? "selected" : ""}`} onClick={()=> handleStorageFolderClick(item)} onDoubleClick={() => handleStorageFolderDoubleClick(item)} aria-pressed={selectedStorageIds.has(item.id)}>
                     <div className="folder_logo" >
                     </div>
                     <h3>{item.name}</h3>
@@ -446,7 +547,7 @@ function App(){
                               <rect x="60" y ="60" width="20" height="150" fill="red" stroke="red" strokeWidth="2"/>
                               <rect x="170" y ="60" width="20" height="150" fill="red" stroke="red" strokeWidth="2"/>
                               <rect x="115" y ="60" width="20" height="150" fill="red" stroke="red" strokeWidth="2"/>
-                              <path d="M30 30 A 5 5 0 0 0 30 40 H220 A 5 5 0 0 0 220 30 Z M90 30 A 35 20 0 0 1 160 30 M150 30 A 30 25 0 0 0 100 30" stroke="red" fill="red" stroke-width = "2"/>
+                              <path d="M30 30 A 5 5 0 0 0 30 40 H220 A 5 5 0 0 0 220 30 Z M90 30 A 35 20 0 0 1 160 30 M150 30 A 30 25 0 0 0 100 30" stroke="red" fill="red" strokeWidth = "2"/>
                             </svg>
                         </div>
                       </button>
@@ -456,24 +557,39 @@ function App(){
                 ) : (
                   <>
                   <div style={{display:'flex',alignItems:'center',flexDirection:'column'}}>
-                    <button type="button" className='file' aria-label={`Download ${item.name}`} onClick={()=>void downloadStorageItem(item)}>
+                    <button type="button" className={`file ${selectedStorageIds.has(item.id) ? "selected" : ""}`} aria-pressed={selectedStorageIds.has(item.id)} aria-label={`Select ${item.name}`} onClick={()=>selectStorageItem(item)}>
                       <div className='file_logo' aria-hidden="true" />
                       <h3 title={item.name}>{item.name}</h3>
                     </button>
-                    <button type="button" className='delete-icon' onClick={(event)=>{
-                        event.stopPropagation();
-                        void deleteStorageItem(item)}} aria-label='download-folder'>
-                        <div className='tactile-shape'>
-                          <svg className = "delete-shape" viewBox="0 0 250 250" fill="none" xmlns="http://w3.org">
-                               
-                              <rect x="40" y ="40" width="170" height="190" fill="none" stroke="red" stroke-width="6"/>
-                              <rect x="60" y ="60" width="20" height="150" fill="red" stroke="red" stroke-width="2"/>
-                              <rect x="170" y ="60" width="20" height="150" fill="red" stroke="red" stroke-width="2"/>
-                              <rect x="115" y ="60" width="20" height="150" fill="red" stroke="red" stroke-width="2"/>
-                              <path d="M30 30 A 5 5 0 0 0 30 40 H220 A 5 5 0 0 0 220 30 Z M90 30 A 35 20 0 0 1 160 30 M150 30 A 30 25 0 0 0 100 30" stroke="red" fill="red" stroke-width = "2"/>
-                            </svg>
+                    <div className="button-row">
+                      <button type="button" className="folder-download" aria-label={`Download ${item.name}`} onClick={(event) => {event.stopPropagation(); void downloadStorageItem(item);}}>
+                        <div className="tactile-shape">
+                          <svg className="download-arrow" viewBox="0 0 24 24" fill="none">
+                            <path
+                              d="M12 15V3M12 15L8 11M12 15L16 11M4 17V19C4 20.1046 4.89543 21 6 21H18C19.1046 21 20 20.1046 20 19V17"
+                              stroke="#2B6CB0"
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
                         </div>
                       </button>
+                      <button type="button" className='delete-icon' onClick={(event)=>{
+                          event.stopPropagation();
+                          void deleteStorageItem(item)}} aria-label='download-folder'>
+                          <div className='tactile-shape'>
+                            <svg className = "delete-shape" viewBox="0 0 250 250" fill="none" xmlns="http://w3.org">
+                                
+                                <rect x="40" y ="40" width="170" height="190" fill="none" stroke="red" strokeWidth="6"/>
+                                <rect x="60" y ="60" width="20" height="150" fill="red" stroke="red" strokeWidth="2"/>
+                                <rect x="170" y ="60" width="20" height="150" fill="red" stroke="red" strokeWidth="2"/>
+                                <rect x="115" y ="60" width="20" height="150" fill="red" stroke="red" strokeWidth="2"/>
+                                <path d="M30 30 A 5 5 0 0 0 30 40 H220 A 5 5 0 0 0 220 30 Z M90 30 A 35 20 0 0 1 160 30 M150 30 A 30 25 0 0 0 100 30" stroke="red" fill="red" strokeWidth = "2"/>
+                              </svg>
+                          </div>
+                        </button>
+                    </div>
                   </div>
                   </>
                 )}
