@@ -195,13 +195,20 @@
 }
 
 .view_container_header{
-  display: flex;
-  flex-direction: row;
-
-  justify-content: left;
-  align-items: center;
+  display: grid;
+  grid-template-columns: minmax(0,1fr) 84px minmax(0,1fr);
+  align-items: start;
   gap: 16px;
   background-color: #501d77;
+}
+
+.pane-header p {
+  width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.head-transfer-spacer {
+  width: 84px;
 }
 
 .vc_2{
@@ -292,8 +299,8 @@
 
 .folder:hover,
 .folder.selected,
-.file:hover,
-.file.selected{
+.file-card:hover,
+.file-card.selected{
   background: linear-gradient(90deg,#F72585,#7209B7,#3F37C9,#7209B7,#F72585);
   background-size: 400% ;
   animation: gradienMovement 10s linear infinite;
@@ -312,6 +319,17 @@
   height: 120px;
   background: transparent;
   border: transparent;
+}
+
+.file-card {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.file-card .button-row {
+  width: 100%;
 }
 
 .file_logo{

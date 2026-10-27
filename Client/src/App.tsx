@@ -39,10 +39,11 @@ function App(){
   const [driveError, setDriveError] = useState("");
   const [currentFolderId,setCurrentFolderId] = useState<string | undefined>();
   const [driveLoading,setDriveLoading] = useState(false);
-  const [folderHistory, setFolderHistory] = useState<{id?: String;name: string}[]>([]);
+  const [folderHistory, setFolderHistory] = useState<{id?: string;name: string}[]>([]);
   const [storageFiles, setStorageFiles] = useState<StorageItem[]>([]);
   const [storageLoading,setStorageLoading] = useState(false);
   const [currentStoreFolder,setCurrentStoreFolder] = useState<string>("Home");
+  const [currentStorageFolderId,setCurrentStorageFolderId] = useState<string>();
   const [storageHistory, setStorageHistory] = useState<StorageFolder[]>([
     { path: "C:/Users/Udit/Storage",name:"Home"},
   ])
@@ -138,10 +139,18 @@ function App(){
     openStorageFolder(newPath,item.name);
   }
   function handleDriveToStorageTransfer(){
-    setStatus(`${selectedDriveIds.size} Drive items(s) ready to transfer to Storage.`);
+    if(!currentStorageFolderId){
+      setStatus("Storage destination is still loading.");
+      return;
+    }
+    setStatus(`Preparing to transfer ${selectedDriveIds.size} Drive items(s) to Storage.`);
   }
   function handleStorageToDriveTransfer(){
-    setStatus(`${selectedStorageIds.size} Storage Item(s) ready to transfer to Drive.`)
+    if(!currentFolderId) {
+      setStatus("Drive destination is still loading.");
+      return;
+    }
+    setStatus(`Preparing to transfer ${selectedStorageIds.size} Storage Item(s) to Drive.`)
   }
 
   async function loadDriveFiles(parentId?: string,folderName = 'My Drive') {
@@ -289,10 +298,22 @@ function App(){
     );
   }
 
-  async function loadStoreFiles(path?: String) {
-    var loadPath = path ? path : base_store_path;
-    var result1 = await callStorageApi('/Storage/list',{localpath : loadPath});
-    setStorageFiles(result1.children);
+  async function loadStoreFiles(folderPath: string = base_store_path) {
+    try {
+      setStorageLoading(true);
+      const data = await callStorageApi("/Storage/list",{localpath: folderPath,});
+      if(!data.id){
+        throw new Error("Storage folder did not return an ID");
+      } 
+
+      setStorageFiles(data.children ?? []);
+      setCurrentStorageFolderId(data.id);
+    }catch (error){
+      const message = error instanceof Error ? error.message : "Could not load storage files";
+      setStatus(message);
+    }finally{
+      setStorageLoading(false)
+    }
   }
 
   function openStorageFolder(path: string, name: string){
@@ -390,7 +411,7 @@ function App(){
       </section>
       
       <section className="view_container_header">
-        <div className='vc_2' style={{flexDirection:"column"}}>
+        <div className="pane-header">
           <h2>Google Drive contents</h2>
           <button type='button' onClick={() => void loadDriveFiles()}>Refresh Drive</button>
           <button type='button' onClick={()=> void loadDriveFiles(currentFolderId)}>Refresh folder</button>
@@ -407,7 +428,10 @@ function App(){
           {driveLoading && <p>Loading files...</p>}
           {driveError && <p>{driveError}</p>}
         </div>
-        <div>
+
+        <div className="header-transfer-spacer" aria-hidden="true" />
+
+        <div className="pane-header">
           <h2>Storage Node contents</h2>
           <button type='button' onClick={()=> void openStorageFolder(listPath,currentStoreFolder)}>Refresh folder</button>
           <p>
@@ -420,8 +444,7 @@ function App(){
               </span>
             ))}
           </p>
-          {driveLoading && <p>Loading files...</p>}
-          {driveError && <p>{driveError}</p>}
+          {storageLoading && <p>Loading files...</p>}
         </div>
       </section>
       <div className='view_container'>
@@ -464,8 +487,8 @@ function App(){
                   </>
                 ) : (
                   <>
-                  <div style={{display: 'flex',alignItems:'center',flexDirection:'column'}}>
-                    <button type="button" className={`file ${selectedDriveIds.has(item.id) ? "selected" : ""}`} aria-pressed={selectedDriveIds.has(item.id)} aria-label={`Select ${item.name}`} onClick={()=>selectDriveItem(item)}>
+                  <div className={`file-card ${selectedDriveIds.has(item.id) ? "selected" : ""}`}>
+                    <button type="button" className="file" aria-pressed={selectedDriveIds.has(item.id)} aria-label={`Select ${item.name}`} onClick={()=>selectDriveItem(item)}>
                       <div className='file_logo' aria-hidden="true" />
                       <h3 title={item.name}>{item.name}</h3>
                     </button>
@@ -556,8 +579,8 @@ function App(){
                   </>
                 ) : (
                   <>
-                  <div style={{display:'flex',alignItems:'center',flexDirection:'column'}}>
-                    <button type="button" className={`file ${selectedStorageIds.has(item.id) ? "selected" : ""}`} aria-pressed={selectedStorageIds.has(item.id)} aria-label={`Select ${item.name}`} onClick={()=>selectStorageItem(item)}>
+                  <div className={`file-card ${selectedStorageIds.has(item.id) ? "selected" : ""}`}>
+                    <button type="button" className="file" aria-pressed={selectedStorageIds.has(item.id)} aria-label={`Select ${item.name}`} onClick={()=>selectStorageItem(item)}>
                       <div className='file_logo' aria-hidden="true" />
                       <h3 title={item.name}>{item.name}</h3>
                     </button>
