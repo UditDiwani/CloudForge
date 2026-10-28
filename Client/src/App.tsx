@@ -47,8 +47,11 @@ function App(){
   const [storageHistory, setStorageHistory] = useState<StorageFolder[]>([
     { path: "C:/Users/Udit/Storage",name:"Home"},
   ])
-  const [selectedDriveIds, setSelectedDriveIds] = useState<Set<string>>(() => new Set());
-  const [selectedStorageIds, setSelectedStorageIds] = useState<Set<string>>(() => new Set());
+  const [selectedDriveItems, setSelectedDriveItems] = useState<Map<string, TransferSelection>>(() => new Map());
+  const [selectedStorageItems, setSelectedStorageItems] = useState<Map<string, TransferSelection>>(() => new Map());
+  const [transferReview, setTransferReview] = useState<TransferReview | null>(null);
+  const [deleteAfterTransfer, setDeleteAfterTransfer] = useState(false);
+  const [transferBusy, setTransferBusy] = useState(false);
   const folderClickTimers = useRef<Record<string,ReturnType<typeof setTimeout>>>({});
 
   type DriveItem = {
@@ -72,16 +75,30 @@ function App(){
     name: string;
   }
 
+  type TransferSelection = {
+    id: string;
+    name: string;
+    path: string;
+    isFolder: boolean;
+  };
+
+  type TransferDirection = "drive-to-storage" | "storage-to-drive";
+
+  type TransferReview = {
+    direction: TransferDirection;
+    items: TransferSelection[];
+  }
+
   function toggleSelection(
-    id: string,
-    setSelectedIds: React.Dispatch<React.SetStateAction<Set<string>>>
+    item: TransferSelection,
+    setSelectedItems: React.Dispatch<React.SetStateAction<Map<string,TransferSelection>>>
   ){
-    setSelectedIds((previous) => {
-      const next = new Set(previous);
-      if(next.has(id)){
-        next.delete(id);
+    setSelectedItems((previous) => {
+      const next = new Map(previous);
+      if(next.has(item.id)){
+        next.delete(item.id);
       }else{
-        next.add(id);
+        next.set(item.id,item);
       }
       return next;
     });
@@ -113,7 +130,16 @@ function App(){
   }
 
   function selectDriveItem(item: DriveItem){
-    toggleSelection(item.id,setSelectedDriveIds);
+    const folderPath = folderHistory.map((folder) => folder.name).join(" / ");
+    toggleSelection(
+      {
+        id: item.id,
+        name: item.name,
+        path: `${folderPath} / ${item.name}`,
+        isFolder: item.isFolder,
+      },
+      setSelectedDriveItems
+    );
   }
   function handleDriveFolderClick(item: DriveItem){
     scheduleFolderSelection(`drive:${item.id}`, () => {
@@ -125,7 +151,16 @@ function App(){
     void loadDriveFiles(item.id, item.name);
   }
   function selectStorageItem(item: StorageItem){
-    toggleSelection(item.id,setSelectedStorageIds);
+    const folderPath = storageHistory.map((folder) => folder.name).join(" / ")
+    toggleSelection(
+      {
+        id: item.id,
+        name: item.name,
+        path: `${folderPath} / ${item.name}`,
+        isFolder: item.isFolder,
+      },
+      setSelectedStorageItems
+    );
   }
   function handleStorageFolderClick(item: StorageItem){
     scheduleFolderSelection(`storage:${item.id}`,() => {
@@ -143,14 +178,164 @@ function App(){
       setStatus("Storage destination is still loading.");
       return;
     }
-    setStatus(`Preparing to transfer ${selectedDriveIds.size} Drive items(s) to Storage.`);
+
+    setDeleteAfterTransfer(false);
+
+    setTransferReview({
+      direction: "drive-to-storage", 
+      items: [...selectedDriveItems.values()],
+    });
   }
   function handleStorageToDriveTransfer(){
     if(!currentFolderId) {
       setStatus("Drive destination is still loading.");
       return;
     }
-    setStatus(`Preparing to transfer ${selectedStorageIds.size} Storage Item(s) to Drive.`)
+
+    setDeleteAfterTransfer(false);
+
+    setTransferReview({
+      direction: 'storage-to-drive',
+      items: [...selectedStorageItems.values()],
+    });
+  }
+
+  function removeItemFromTransferReview(itemId: string){
+    if(!transferReview) return;
+
+    if(transferReview.direction === "drive-to-storage"){
+      setSelectedDriveItems((previous) => {
+        const next = new Map(previous);
+        next.delete(itemId);
+        return next;
+      });
+    } else {
+      setSelectedStorageItems((previous) => {
+        const next = new Map(previous);
+        next.delete(itemId);
+        return next;
+      });
+    }
+
+    setTransferReview((previous) => {
+      if(!previous) return null;
+
+      return {
+        ...previous,
+        items: previous.items.filter((item) => item.id !== itemId),
+      };
+    });
+  }
+
+  async function confirmTransfer() {
+    if(!transferReview || transferReview.items.length === 0){
+      return;
+    }
+
+    try {
+      setTransferBusy(true);
+
+      const isDriveToStorage = transferReview.direction === "drive-to-storage";
+
+      const response = await fetch(
+        isDriveToStorage ? 
+          `${API_BASE}/Storage/transfers/drive-to-storage` :
+          `${API_BASE}/Storage/transfers/storage-to-drive`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            credentials: "include",
+            body: JSON.stringify(
+              isDriveToStorage ? 
+              {
+                driveItemIds: transferReview.items.map((item) => item.id),
+                destinationStorageFolderId: currentStorageFolderId,
+              }
+              : {
+                storageItemIds: transferReview.items.map((item) => item.id),
+                destinationDriveFolderId: currentFolderId,
+              }
+            ),
+          }
+      );
+
+      const data = await response.json();
+
+      if(!response.ok){
+        throw new Error(data.error ?? "Transfer failed");
+      }
+
+      const transferredIds = new Set<string>(
+        data.transferred.map((item: { sourceId: string}) => item.sourceId)
+      )
+
+      if(isDriveToStorage){
+        setSelectedDriveItems((previous) => {
+          const next = new Map(previous);
+
+          for (const id of transferredIds){
+            next.delete(id)
+          }
+          return next;
+        });
+      } else{
+        setSelectedStorageItems((previous) =>{
+          const next = new Map(previous);
+
+          for (const id of transferredIds){
+            next.delete(id);
+          }
+          return next;
+        });
+      }
+
+      if(deleteAfterTransfer){
+        const deleteRequests = data.transferred.map(
+          async (item: { sourceId: string}) =>{
+            const deleteUrl = isDriveToStorage ? 
+              `${API_BASE_MAIN}/api/drive/items/${encodeURIComponent(item.sourceId)}` :
+              `${API_BASE}/Storage/items/${encodeURIComponent(item.sourceId)}`;
+            
+            const deleteResponse = await fetch(deleteUrl, {
+              method: "DELETE",
+              credentials: "include",
+            });
+
+            const deleteData = await deleteResponse.json();
+
+            if (!deleteResponse.ok){
+              throw new Error(deleteData.error ?? "Could not delete transferred source item");
+            }
+          }
+        );
+
+        await Promise.all(deleteRequests);
+
+        await Promise.all([
+          loadDriveFiles(currentFolderId),
+          loadStoreFiles(listPath),
+        ]);
+      } else if(isDriveToStorage){
+        await loadStoreFiles(listPath);
+      } else {
+        await loadDriveFiles(currentFolderId);
+      }
+
+      const failedCount = data.failed.length;
+
+      setStatus(
+        `${data.transferred.length} item(s) tranferred successfully` + 
+        (failedCount > 0 ? `; ${failedCount} item(s) failed.` : ".")
+      );
+      setTransferReview(null);
+    } catch(error){
+      const message = error instanceof Error ? error.message : "Transfer failed";
+      setStatus(message);
+    }finally{
+      setTransferBusy(false);
+    }
   }
 
   async function loadDriveFiles(parentId?: string,folderName = 'My Drive') {
@@ -454,7 +639,7 @@ function App(){
               <li key={item.id}>
                 {item.isFolder ? (
                   <>
-                  <div className={`folder ${selectedDriveIds.has(item.id) ? "selected" : ""}`} onClick={()=> handleDriveFolderClick(item)} onDoubleClick={()=>handleDriveFolderDoubleClick(item)} aria-pressed={selectedDriveIds.has(item.id)}>
+                  <div className={`folder ${selectedDriveItems.has(item.id) ? "selected" : ""}`} onClick={()=> handleDriveFolderClick(item)} onDoubleClick={()=>handleDriveFolderDoubleClick(item)} aria-pressed={selectedDriveItems.has(item.id)}>
                   <div className="folder_logo" >
                   </div>
                   <h3>{item.name}</h3>
@@ -487,8 +672,8 @@ function App(){
                   </>
                 ) : (
                   <>
-                  <div className={`file-card ${selectedDriveIds.has(item.id) ? "selected" : ""}`}>
-                    <button type="button" className="file" aria-pressed={selectedDriveIds.has(item.id)} aria-label={`Select ${item.name}`} onClick={()=>selectDriveItem(item)}>
+                  <div className={`file-card ${selectedDriveItems.has(item.id) ? "selected" : ""}`}>
+                    <button type="button" className="file" aria-pressed={selectedDriveItems.has(item.id)} aria-label={`Select ${item.name}`} onClick={()=>selectDriveItem(item)}>
                       <div className='file_logo' aria-hidden="true" />
                       <h3 title={item.name}>{item.name}</h3>
                     </button>
@@ -529,12 +714,12 @@ function App(){
           </ul>
 
           <div className="transfer-controls">
-            <button type="button" className="transfer-arrow" onClick={handleDriveToStorageTransfer} disabled={selectedDriveIds.size === 0} aria-label="Transfer selected Drive Items to Storage" title="Move selected Drive items to Storage">
+            <button type="button" className="transfer-arrow" onClick={handleDriveToStorageTransfer} disabled={selectedDriveItems.size === 0} aria-label="Transfer selected Drive Items to Storage" title="Move selected Drive items to Storage">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M5 12 H19 M13 6 L19 12 L13 18" />
               </svg>
             </button>
-            <button type="button" className="transfer-arrow" onClick={handleStorageToDriveTransfer} disabled={selectedStorageIds.size === 0} aria-label="Transfer selected Storage items to Drive" title="Move selected Storage items to Drive">
+            <button type="button" className="transfer-arrow" onClick={handleStorageToDriveTransfer} disabled={selectedStorageItems.size === 0} aria-label="Transfer selected Storage items to Drive" title="Move selected Storage items to Drive">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M19 12 H5 M11 6 L5 12 L11 18" />
               </svg>
@@ -546,7 +731,7 @@ function App(){
               <li key={item.id}>
                 {item.isFolder ? (
                   <>
-                  <div className={`folder ${selectedStorageIds.has(item.id) ? "selected" : ""}`} onClick={()=> handleStorageFolderClick(item)} onDoubleClick={() => handleStorageFolderDoubleClick(item)} aria-pressed={selectedStorageIds.has(item.id)}>
+                  <div className={`folder ${selectedStorageItems.has(item.id) ? "selected" : ""}`} onClick={()=> handleStorageFolderClick(item)} onDoubleClick={() => handleStorageFolderDoubleClick(item)} aria-pressed={selectedStorageItems.has(item.id)}>
                     <div className="folder_logo" >
                     </div>
                     <h3>{item.name}</h3>
@@ -579,8 +764,8 @@ function App(){
                   </>
                 ) : (
                   <>
-                  <div className={`file-card ${selectedStorageIds.has(item.id) ? "selected" : ""}`}>
-                    <button type="button" className="file" aria-pressed={selectedStorageIds.has(item.id)} aria-label={`Select ${item.name}`} onClick={()=>selectStorageItem(item)}>
+                  <div className={`file-card ${selectedStorageItems.has(item.id) ? "selected" : ""}`}>
+                    <button type="button" className="file" aria-pressed={selectedStorageItems.has(item.id)} aria-label={`Select ${item.name}`} onClick={()=>selectStorageItem(item)}>
                       <div className='file_logo' aria-hidden="true" />
                       <h3 title={item.name}>{item.name}</h3>
                     </button>
@@ -622,6 +807,49 @@ function App(){
             ))}
           </ul>
       </div>
+      {transferReview && (
+        <div className="transfer-dialog-backdrop">
+          <section className="transfer-dialog" role="dialog" aria-modal="true" aria-labelledby="transfer-dialog-title">
+            <h2 id="transfer-dialog-title">Confirm Transfer</h2>
+            
+            <p>
+              the following {transferReview.items.length} item(s) will be transferred 
+              {transferReview.direction === 'drive-to-storage' 
+                ? "from Google Drive to the current Storage folder."
+                : "from Storage to the current Google Drive folder."}
+            </p>
+
+            <ul className="transfer-review-list">
+              {transferReview.items.map((items) => (
+                <li key = {items.id}>
+                  <div>
+                    <strong>{items.isFolder ? "Folder: " : "File:"}</strong>
+                    {items.name}
+                    <small>{items.path}</small>
+                  </div>
+                  <button type="button" className="remove-transfer-item" onClick={()=> removeItemFromTransferReview(items.id)}>
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+
+            <label className="delete-after-transfer">
+              <input type="checkbox" checked={deleteAfterTransfer} onChange={(event) => setDeleteAfterTransfer(event.target.checked)} />
+              Delete items from source after transfer 
+            </label>
+
+            <div className="transfer-dialog-actions">
+              <button type="button" onClick={() => setTransferReview(null)} disabled={transferBusy}>
+                Cancel
+              </button>
+              <button type="button" onClick={() => void confirmTransfer()} disabled={transferBusy || transferReview.items.length === 0}>
+                {transferBusy ? "Transferring..." : "Confirm transfer"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </main>
   )
 }
