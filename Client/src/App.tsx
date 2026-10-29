@@ -4,7 +4,6 @@ import './App.css'
 
 const API_BASE_MAIN = "http://127.0.0.1:3001"
 const API_BASE = "http://127.0.0.1:3000";
-const base_store_path='C:/Users/Udit/Storage';
 
 async function callStorageApi(path: String, body: Object) {
   const response = await fetch(`${API_BASE}${path}`, {
@@ -42,11 +41,8 @@ function App(){
   const [folderHistory, setFolderHistory] = useState<{id?: string;name: string}[]>([]);
   const [storageFiles, setStorageFiles] = useState<StorageItem[]>([]);
   const [storageLoading,setStorageLoading] = useState(false);
-  const [currentStoreFolder,setCurrentStoreFolder] = useState<string>("Home");
   const [currentStorageFolderId,setCurrentStorageFolderId] = useState<string>();
-  const [storageHistory, setStorageHistory] = useState<StorageFolder[]>([
-    { path: "C:/Users/Udit/Storage",name:"Home"},
-  ])
+  const [storageHistory, setStorageHistory] = useState<StorageFolder[]>([]);
   const [selectedDriveItems, setSelectedDriveItems] = useState<Map<string, TransferSelection>>(() => new Map());
   const [selectedStorageItems, setSelectedStorageItems] = useState<Map<string, TransferSelection>>(() => new Map());
   const [transferReview, setTransferReview] = useState<TransferReview | null>(null);
@@ -71,7 +67,7 @@ function App(){
   }
 
   type StorageFolder ={
-    path: string;
+    id: string;
     name: string;
   }
 
@@ -169,9 +165,7 @@ function App(){
   }
   function handleStorageFolderDoubleClick(item: StorageItem){
     cancelFolderSelection(`storage:${item.id}`);
-
-    const newPath = `${listPath}/${item.name}`;
-    openStorageFolder(newPath,item.name);
+    openStorageFolder(item);
   }
   function handleDriveToStorageTransfer(){
     if(!currentStorageFolderId){
@@ -315,10 +309,10 @@ function App(){
 
         await Promise.all([
           loadDriveFiles(currentFolderId),
-          loadStoreFiles(listPath),
+          refreshStorageFolder(),
         ]);
       } else if(isDriveToStorage){
-        await loadStoreFiles(listPath);
+        await refreshStorageFolder();
       } else {
         await loadDriveFiles(currentFolderId);
       }
@@ -436,7 +430,7 @@ function App(){
       throw new Error(data.error ?? "Could not delete storage item");
     }
 
-    await loadStoreFiles(listPath);
+    await refreshStorageFolder();
   }
 
   useEffect(() => {
@@ -483,16 +477,31 @@ function App(){
     );
   }
 
-  async function loadStoreFiles(folderPath: string = base_store_path) {
+  async function loadStoreFiles(parentId?: string, folderName = "Home") {
     try {
       setStorageLoading(true);
-      const data = await callStorageApi("/Storage/list",{localpath: folderPath,});
-      if(!data.id){
-        throw new Error("Storage folder did not return an ID");
-      } 
+      const data = await callStorageApi("/Storage/list", parentId ? { parentId } : {} );
 
-      setStorageFiles(data.children ?? []);
-      setCurrentStorageFolderId(data.id);
+      setStorageFiles(data.items ?? []);
+      setCurrentStorageFolderId(data.parentId);
+
+      setStorageHistory((previous) => {
+        const existingIndex = previous.findIndex(
+          (folder) => folder.id === data.parentId 
+        );
+
+        if(existingIndex >=0){
+          return previous.slice(0, existingIndex + 1);
+        }
+
+        return [
+          ...previous,
+          {
+            id: data.parentId,
+            name: folderName,
+          },
+        ];
+      });
     }catch (error){
       const message = error instanceof Error ? error.message : "Could not load storage files";
       setStatus(message);
@@ -501,18 +510,15 @@ function App(){
     }
   }
 
-  function openStorageFolder(path: string, name: string){
-    setListPath(path);
-    setCurrentStoreFolder(name);
-    setStorageHistory((previous) => {
-      const existingIndex = previous.findIndex((folder) => folder.path === path);
-      void loadStoreFiles(path);
-      if (existingIndex >=0){
-        return previous.slice(0,existingIndex+1);
-      }
-      return [...previous,{path: path, name: name}];
-    });
-    
+  function refreshStorageFolder(){
+    return loadStoreFiles(
+      currentStorageFolderId,
+      storageHistory[storageHistory.length - 1]?.name ?? "Home"
+    );
+  }
+
+  function openStorageFolder(item: StorageItem){
+    void loadStoreFiles(item.id,item.name);
   }
 
   return (
@@ -618,12 +624,13 @@ function App(){
 
         <div className="pane-header">
           <h2>Storage Node contents</h2>
-          <button type='button' onClick={()=> void openStorageFolder(listPath,currentStoreFolder)}>Refresh folder</button>
+          <button type='button' onClick={()=> void refreshStorageFolder()}>
+            Refresh folder</button>
           <p>
             {storageHistory.map((folder,index)=>(
-              <span key={folder.path ?? 'storage-root'}>
+              <span key={folder.id}>
                 {index > 0 && '>>'}
-                <button className='bread_crumbs' type="button" onClick={() => void openStorageFolder(folder.path,folder.name)}>
+                <button className='bread_crumbs' type="button" onClick={() => void loadStoreFiles(folder.id,folder.name)}>
                   {folder.name}
                 </button>
               </span>

@@ -1,48 +1,71 @@
-const fs = require('fs').promises;
+const fs = require('fs/promises');
 const path = require('path'); 
-const { isFolder } = require('../../Services/driveService');
-const { makeItemId } = require('../storageItems');
 
+const { STORAGE_ROOT, makeItemId, pathFromItemId, } = require("../storageItems");
 
-const listDownloaded = async (localpath) => {
-    try{
-        const folderStats = await fs.stat(localpath);
-        const items = await fs.readdir(localpath);
-        const result = {
-            id: makeItemId(localpath),
-            name: path.basename(localpath),
-            isFolder: true,
-            children: [],
-        };
+async function listStorageFolder(req,res) {
+    try { 
+        const { parentId } = req.body || {};
 
-        for(const item of items){
-            const fullpath = path.join(localpath,item);
-            const stats = await fs.stat(fullpath);
-            
-            if (stats.isDirectory()){
-                result.children.push(await listDownloaded(fullpath));
-            }
-            else{
-                result.children.push({
-                    id: makeItemId(fullpath),
-                    name: item,
-                    isFolder: stats.isDirectory(),
-                });
-            }
+        const folderPath = parentId ? pathFromItemId(parentId) : STORAGE_ROOT;
+
+        const folderStats = await fs.lstat(folderPath);
+
+        if(!folderStats.isDirectory()){
+            return res.status(400).json({
+                error: "Storage parent must be a folder",
+            });
         }
-        return result;
-    }
-    catch (error){
-        console.error(`Error while reading directory : ${error}`)
+
+        const entries = await fs.readdir(folderPath, {
+            withFileTypes: true,
+        });
+
+        const items = await Promise.all(
+            entries.map(async (entry) => {
+                const itemPath = path.join(folderPath,entry.name);
+                const itemStats = await fs.lstat(itemPath);
+
+                if(itemStats.isSymbolicLink()){
+                    return null;
+                }
+
+                return {
+                    id: makeItemId(itemPath),
+                    name: entry.name,
+                    isFolder: itemStats.isDirectory(),
+                    size: itemStats.isFile() ? String(itemStats.size) : null,
+                    modifiedTime: itemStats.mtime.toISOString(),
+                };
+            })
+        );
+
+        const visibleItems = items.filter(Boolean).sort((first, second) => {
+            if(first.isFolder !== second.isFolder) {
+                return first.isFolder ? -1 : 1;
+            }
+
+            return first.name.localeCompare(second.name);
+        });
+
+        return res.json({
+            parentId: makeItemId(folderPath),
+            items: visibleItems,
+        })
+
+    } catch (error){
+        console.error("Storage listing failed: ", error.message);
+
+        if(error.code === "ENOENT"){
+            return res.status(404).json({
+                error: "Storage folder was not found",
+            });
+        }
+
+        return res.status(400).json({
+            error: "Could not list storage folder",
+        });
     }
 }
 
-const listDownload = async (req,res) => {
-    const { localpath } = req.body;
-
-    const result = await listDownloaded(localpath);
-    res.status(200).json(result);
-    // console.log(JSON.stringify(result, null, 2));
-}
-
-module.exports = { listDownload }
+module.exports = { listStorageFolder }
