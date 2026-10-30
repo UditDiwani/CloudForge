@@ -6,6 +6,10 @@ const { uploadRoute } = require('./Jobs/upload');
 const { downloadStorageItem } = require("./Jobs/browserDownload");
 const { deleteStorageItem } = require("./Jobs/delete");
 const { transferDriveToStorage, transferStorageToDrive } = require("./Jobs/transfer");
+const { parseStorageUpload, 
+        uploadStorageFiles,
+        createStorageChildFolder,
+} = require("./Jobs/storageUpload");
 const router = express.Router();
 
 router.post('/list',listStorageFolder);
@@ -16,4 +20,13 @@ router.get("/items/:itemId/download",downloadStorageItem);
 router.delete("/items/:itemId", deleteStorageItem);
 router.post("/transfers/drive-to-storage", transferDriveToStorage);
 router.post("/transfers/storage-to-drive",transferStorageToDrive);
+router.post(
+    "/folders/:folderId/uploads",
+    parseStorageUpload,
+    uploadStorageFiles
+);
+router.post(
+    "/folders/:folderId/children",
+    createStorageChildFolder
+);
 module.exports = router;
